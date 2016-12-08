@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">XVideoview</string>
+
+    <string name="brightness_changing">亮度:%1$d%%</string>
+    <string name="volume_changing">音量:%1$d%%</string>
 </resources>

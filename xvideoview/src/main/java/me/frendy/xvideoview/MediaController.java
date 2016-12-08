@@ -23,12 +23,19 @@ import android.content.res.TypedArray;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.DrawableRes;
+import android.support.v4.content.ContextCompat;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
@@ -105,8 +112,7 @@ public class MediaController extends FrameLayout {
     private float height;
     // 音频管理器
     private AudioManager mAudioManager;
-    // 声音调节Toast
-    private VolumnController volumnController;
+    private TextView centerInfo;
 
     public MediaController(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -136,8 +142,6 @@ public class MediaController extends FrameLayout {
         width = DensityUtil.getWidthInPx(mContext);
         height = DensityUtil.getHeightInPx(mContext);
         threshold = DensityUtil.dip2px(mContext, 18);
-
-        volumnController = new VolumnController(mContext);
     }
 
 
@@ -150,6 +154,7 @@ public class MediaController extends FrameLayout {
         mScaleButton = (ImageButton) v.findViewById(R.id.scale_button);
         mCenterPlayButton = v.findViewById(R.id.center_play_btn);
         mBackButton = v.findViewById(R.id.back_btn);
+        centerInfo = (TextView) v.findViewById(R.id.centerInfo);
 
         if (mTurnButton != null) {
             mTurnButton.requestFocus();
@@ -388,6 +393,20 @@ public class MediaController extends FrameLayout {
         }
     }
 
+    private String stringForTime(long timeMs) {
+        if (timeMs == (Long.MIN_VALUE + 1)) {
+            timeMs = 0;
+        }
+        long totalSeconds = (timeMs + 500) / 1000;
+        long seconds = totalSeconds % 60;
+        long minutes = (totalSeconds / 60) % 60;
+        long hours = totalSeconds / 3600;
+
+        mFormatBuilder.setLength(0);
+        return hours > 0 ? mFormatter.format("%d:%02d:%02d", hours, minutes, seconds).toString()
+                : mFormatter.format("%02d:%02d", minutes, seconds).toString();
+    }
+
     private int setProgress() {
         if (mPlayer == null || mDragging) {
             return 0;
@@ -483,22 +502,22 @@ public class MediaController extends FrameLayout {
                     }
                     if (isAdjustAudio) {
                         if (x < width / 2) {
-                            if (deltaY > 0) {
+                            if (deltaY > 0 && mLastMotionY != 0) {
                                 lightDown(absDeltaY);
-                            } else if (deltaY < 0) {
+                            } else if (deltaY < 0 && mLastMotionY != 0) {
                                 lightUp(absDeltaY);
                             }
                         } else {
-                            if (deltaY > 0) {
+                            if (deltaY > 0 && mLastMotionY != 0) {
                                 volumeDown(absDeltaY);
-                            } else if (deltaY < 0) {
+                            } else if (deltaY < 0 && mLastMotionY != 0) {
                                 volumeUp(absDeltaY);
                             }
                         }
                     } else {
-//                        if (deltaX > 0) {
+//                        if (deltaX > 0 && mLastMotionX != 0) {
 //                            forward(absDeltaX);
-//                        } else if (deltaX < 0) {
+//                        } else if (deltaX < 0 && mLastMotionX != 0) {
 //                            backward(absDeltaX);
 //                        }
                     }
@@ -513,9 +532,11 @@ public class MediaController extends FrameLayout {
                     mLastMotionX = 0;
                     mLastMotionY = 0;
                     startX = (int) 0;
+                    startY = (int) 0;
 //                    if (isClick) {
 //                        showOrHide();
 //                    }
+                    hideCenterInfo();
                     isClick = true;
                     break;
 
@@ -797,7 +818,14 @@ public class MediaController extends FrameLayout {
         int volume = Math.max(current - down, 0);
         mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
         int transformatVolume = volume * 100 / max;
-        volumnController.show(transformatVolume);
+
+        int drawableId;
+        if (transformatVolume == 0) {
+            drawableId = R.drawable.ic_volume_mute_white_36dp;
+        } else {
+            drawableId = R.drawable.ic_volume_down_white_36dp;
+        }
+        setVolumeOrBrightnessInfo(getContext().getString(R.string.volume_changing, transformatVolume), drawableId);
     }
 
     private void volumeUp(float delatY) {
@@ -807,22 +835,86 @@ public class MediaController extends FrameLayout {
         int volume = Math.min(current + up, max);
         mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
         int transformatVolume = volume * 100 / max;
-        volumnController.show(transformatVolume);
+
+        int drawableId;
+        if (transformatVolume == 0) {
+            drawableId = R.drawable.ic_volume_mute_white_36dp;
+        } else {
+            drawableId = R.drawable.ic_volume_up_white_36dp;
+        }
+        setVolumeOrBrightnessInfo(getContext().getString(R.string.volume_changing, transformatVolume), drawableId);
     }
 
     private void lightDown(float delatY) {
         if(mActivity != null) {
-            int down = (int) (delatY / height * 255 * 3);
+            int down = (int) (delatY / height * 255);
             int transformatLight = LightnessController.getLightness(mActivity) - down;
+            int brightness;
+            if(transformatLight <= 0) {
+                transformatLight = 1;
+                brightness = 0;
+            } else if(transformatLight >= 255) {
+                transformatLight = 254;
+                brightness = 100;
+            } else {
+                brightness = transformatLight * 100 / 255;
+            }
             LightnessController.setLightness(mActivity, transformatLight);
+
+            setVolumeOrBrightnessInfo(getContext().getString(R.string.brightness_changing, brightness), whichBrightnessImageToUse(brightness));
         }
     }
 
     private void lightUp(float delatY) {
         if(mActivity != null) {
-            int up = (int) (delatY / height * 255 * 3);
+            int up = (int) (delatY / height * 255);
             int transformatLight = LightnessController.getLightness(mActivity) + up;
+            int brightness;
+            if(transformatLight <= 0) {
+                transformatLight = 1;
+                brightness = 0;
+            } else if(transformatLight >= 255) {
+                transformatLight = 254;
+                brightness = 100;
+            } else {
+                brightness = transformatLight * 100 / 255;
+            }
             LightnessController.setLightness(mActivity, transformatLight);
+
+            setVolumeOrBrightnessInfo(getContext().getString(R.string.brightness_changing, brightness), whichBrightnessImageToUse(brightness));
+        }
+    }
+
+    private void setVolumeOrBrightnessInfo(String txt, @DrawableRes int drawableId) {
+        centerInfo.setVisibility(VISIBLE);
+        centerInfo.setText(txt);
+        centerInfo.setTextColor(ContextCompat.getColor(getContext(), android.R.color.white));
+        centerInfo.setCompoundDrawablesWithIntrinsicBounds(null, ContextCompat.getDrawable(getContext(), drawableId), null, null);
+    }
+
+    private void hideCenterInfo() {
+        if(centerInfo != null && centerInfo.getVisibility() == VISIBLE) {
+            centerInfo.startAnimation(AnimationUtils.loadAnimation(getContext(), android.R.anim.fade_out));
+            centerInfo.setVisibility(GONE);
+        }
+    }
+
+    @DrawableRes
+    private int whichBrightnessImageToUse(int brightnessInt) {
+        if (brightnessInt <= 15) {
+            return R.drawable.ic_brightness_1_white_36dp;
+        } else if (brightnessInt <= 30 && brightnessInt > 15) {
+            return R.drawable.ic_brightness_2_white_36dp;
+        } else if (brightnessInt <= 45 && brightnessInt > 30) {
+            return R.drawable.ic_brightness_3_white_36dp;
+        } else if (brightnessInt <= 60 && brightnessInt > 45) {
+            return R.drawable.ic_brightness_4_white_36dp;
+        } else if (brightnessInt <= 75 && brightnessInt > 60) {
+            return R.drawable.ic_brightness_5_white_36dp;
+        } else if (brightnessInt <= 90 && brightnessInt > 75) {
+            return R.drawable.ic_brightness_6_white_36dp;
+        } else {
+            return R.drawable.ic_brightness_7_white_36dp;
         }
     }
 
@@ -836,6 +928,8 @@ public class MediaController extends FrameLayout {
         mPlayer.seekTo(currentTime);
         mProgress.setProgress(currentTime * 100 / mPlayer.getDuration());
         mCurrentTime.setText(stringForTime(currentTime));
+
+        setFastForwardOrRewind(currentTime, R.drawable.ic_fast_rewind_white_36dp);
     }
 
     private void forward(float delataX) {
@@ -845,6 +939,30 @@ public class MediaController extends FrameLayout {
         mPlayer.seekTo(currentTime);
         mProgress.setProgress(currentTime * 100 / mPlayer.getDuration());
         mCurrentTime.setText(stringForTime(currentTime));
+
+        setFastForwardOrRewind(currentTime, R.drawable.ic_fast_forward_white_36dp);
+    }
+
+    private void setFastForwardOrRewind(long changingTime, @DrawableRes int drawableId) {
+        centerInfo.setVisibility(VISIBLE);
+        centerInfo.setText(generateFastForwardOrRewindTxt(changingTime));
+        centerInfo.setCompoundDrawablesWithIntrinsicBounds(null, ContextCompat.getDrawable(getContext(), drawableId), null, null);
+    }
+
+    private CharSequence generateFastForwardOrRewindTxt(long changingTime) {
+        long duration = mPlayer == null ? 0 : mPlayer.getDuration();
+        String result = stringForTime(changingTime) + " / " + stringForTime(duration);
+
+        int index = result.indexOf("/");
+        SpannableString spannableString = new SpannableString(result);
+
+        TypedValue typedValue = new TypedValue();
+        TypedArray a = getContext().obtainStyledAttributes(typedValue.data, new int[]{R.attr.colorAccent});
+        int color = a.getColor(0, 0);
+        a.recycle();
+        spannableString.setSpan(new ForegroundColorSpan(color), 0, index, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+
+        return spannableString;
     }
 
     public interface MediaPlayerControl {
