@@ -1,22 +1,24 @@
 package me.frendy.demo;
 
 import android.app.Activity;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
-import me.frendy.xvideoview.MediaController;
-import me.frendy.xvideoview.XVideoView;
+import com.duanqu.qupai.jni.ApplicationGlue;
+import com.duanqu.qupai.mediaplayer.QuPlayerExt;
 
-public class MainActivity extends AppCompatActivity implements XVideoView.VideoViewCallback {
+import me.frendy.xvideoview.MediaController;
+import me.frendy.xvideoview.XVideoViewExt;
+
+public class MainActivity extends AppCompatActivity implements XVideoViewExt.VideoViewCallback {
     private static final String TAG = "MainActivity";
     private Activity mActivity = MainActivity.this;
 
     private View mVideoLayout;
-    private XVideoView mVideoView;
+    private XVideoViewExt mVideoView;
     private MediaController mMediaController;
 
     private int cachedHeight;
@@ -31,8 +33,12 @@ public class MainActivity extends AppCompatActivity implements XVideoView.VideoV
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        System.loadLibrary("qupai-media-thirdparty");
+        System.loadLibrary("qupai-media-jni");
+        ApplicationGlue.initialize(getApplicationContext());
+
         mVideoLayout = findViewById(R.id.video_layout);
-        mVideoView = (XVideoView) findViewById(R.id.videoView);
+        mVideoView = (XVideoViewExt) findViewById(R.id.videoView);
         mMediaController = (MediaController) findViewById(R.id.media_controller);
         mMediaController.attachActivity(mActivity);
         mMediaController.setTitle("2016广东互联网大会精彩回顾");
@@ -127,22 +133,22 @@ public class MainActivity extends AppCompatActivity implements XVideoView.VideoV
     }
 
     @Override
-    public void onPause(MediaPlayer mediaPlayer) {
+    public void onPause(QuPlayerExt mediaPlayer) {
         Log.d(TAG, "onPause UniversalVideoView callback");
     }
 
     @Override
-    public void onStart(MediaPlayer mediaPlayer) {
+    public void onStart(QuPlayerExt mediaPlayer) {
         Log.d(TAG, "onStart UniversalVideoView callback");
     }
 
     @Override
-    public void onBufferingStart(MediaPlayer mediaPlayer) {
+    public void onBufferingStart(QuPlayerExt mediaPlayer) {
         Log.d(TAG, "onBufferingStart UniversalVideoView callback");
     }
 
     @Override
-    public void onBufferingEnd(MediaPlayer mediaPlayer) {
+    public void onBufferingEnd(QuPlayerExt mediaPlayer) {
         Log.d(TAG, "onBufferingEnd UniversalVideoView callback");
     }
 }

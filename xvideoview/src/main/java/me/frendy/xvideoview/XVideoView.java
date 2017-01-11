@@ -42,7 +42,7 @@ import java.util.Map;
 
 public class XVideoView extends SurfaceView
         implements MediaController.MediaPlayerControl,OrientationDetector.OrientationChangeListener{
-    private String TAG = "UniversalVideoView";
+    private String TAG = "XVideoView";
     // settable by the client
     private Uri mUri;
 

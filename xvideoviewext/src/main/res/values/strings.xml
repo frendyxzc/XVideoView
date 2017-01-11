@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">XVideoViewExt</string>
+
+    <string name="pref_key_player">pref.player</string>
+</resources>

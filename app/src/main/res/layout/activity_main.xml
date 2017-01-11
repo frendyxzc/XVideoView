@@ -13,7 +13,7 @@
         android:layout_height="200dp"
         android:background="@android:color/black">
 
-        <me.frendy.xvideoview.XVideoView
+        <me.frendy.xvideoview.XVideoViewExt
             android:id="@+id/videoView"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
